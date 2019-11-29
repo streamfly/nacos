@@ -15,16 +15,25 @@
  */
 package com.alibaba.nacos.config.server.service;
 
-import com.alibaba.nacos.config.server.enums.FileTypeEnum;
-import com.alibaba.nacos.api.exception.NacosException;
-import com.alibaba.nacos.config.server.model.*;
-import com.alibaba.nacos.config.server.utils.LogUtil;
-import com.alibaba.nacos.config.server.utils.MD5;
-import com.alibaba.nacos.config.server.utils.PaginationHelper;
-import com.alibaba.nacos.config.server.utils.ParamUtils;
-import com.alibaba.nacos.config.server.utils.event.EventDispatcher;
-import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
+import static com.alibaba.nacos.config.server.utils.LogUtil.defaultLog;
+import static com.alibaba.nacos.config.server.utils.LogUtil.fatalLog;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import javax.annotation.PostConstruct;
+
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -47,14 +56,36 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
-import javax.annotation.PostConstruct;
-import java.io.IOException;
-import java.sql.*;
-import java.util.*;
-import java.util.Map.Entry;
-
-import static com.alibaba.nacos.config.server.utils.LogUtil.defaultLog;
-import static com.alibaba.nacos.config.server.utils.LogUtil.fatalLog;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.config.server.enums.FileTypeEnum;
+import com.alibaba.nacos.config.server.model.ConfigAdvanceInfo;
+import com.alibaba.nacos.config.server.model.ConfigAllInfo;
+import com.alibaba.nacos.config.server.model.ConfigHistoryInfo;
+import com.alibaba.nacos.config.server.model.ConfigInfo;
+import com.alibaba.nacos.config.server.model.ConfigInfo4Beta;
+import com.alibaba.nacos.config.server.model.ConfigInfo4Tag;
+import com.alibaba.nacos.config.server.model.ConfigInfoAggr;
+import com.alibaba.nacos.config.server.model.ConfigInfoBase;
+import com.alibaba.nacos.config.server.model.ConfigInfoChanged;
+import com.alibaba.nacos.config.server.model.ConfigInfoType;
+import com.alibaba.nacos.config.server.model.ConfigKey;
+import com.alibaba.nacos.config.server.model.ConfigTemplateAllInfo;
+import com.alibaba.nacos.config.server.model.ConfigTemplateHistoryInfo;
+import com.alibaba.nacos.config.server.model.ConfigTemplateHistoryRelationInfo;
+import com.alibaba.nacos.config.server.model.ConfigTemplateInfo;
+import com.alibaba.nacos.config.server.model.ConfigTemplateRelationInfo;
+import com.alibaba.nacos.config.server.model.Page;
+import com.alibaba.nacos.config.server.model.SameConfigPolicy;
+import com.alibaba.nacos.config.server.model.SubInfo;
+import com.alibaba.nacos.config.server.model.TenantInfo;
+import com.alibaba.nacos.config.server.model.User;
+import com.alibaba.nacos.config.server.utils.LogUtil;
+import com.alibaba.nacos.config.server.utils.MD5;
+import com.alibaba.nacos.config.server.utils.PaginationHelper;
+import com.alibaba.nacos.config.server.utils.ParamUtils;
+import com.alibaba.nacos.config.server.utils.event.EventDispatcher;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 
 /**
  * 数据库服务，提供ConfigInfo在数据库的存取<br> 3.0开始增加数据版本号, 并将物理删除改为逻辑删除<br> 3.0增加数据库切换功能
@@ -257,7 +288,7 @@ public class PersistService {
         @Override
         public ConfigAdvanceInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
             ConfigAdvanceInfo info = new ConfigAdvanceInfo();
-            info.setCreateTime(rs.getTimestamp("gmt_modified").getTime());
+            info.setCreateTime(rs.getTimestamp("gmt_create").getTime());
             info.setModifyTime(rs.getTimestamp("gmt_modified").getTime());
             info.setCreateUser(rs.getString("src_user"));
             info.setCreateIp(rs.getString("src_ip"));
@@ -293,7 +324,7 @@ public class PersistService {
             } catch (SQLException e) {
                 // ignore
             }
-            info.setCreateTime(rs.getTimestamp("gmt_modified").getTime());
+            info.setCreateTime(rs.getTimestamp("gmt_create").getTime());
             info.setModifyTime(rs.getTimestamp("gmt_modified").getTime());
             info.setCreateUser(rs.getString("src_user"));
             info.setCreateIp(rs.getString("src_ip"));
@@ -473,6 +504,154 @@ public class PersistService {
             return user;
         }
     }
+    
+    static final class ConfigTemplateInfoRowMapper implements RowMapper<ConfigTemplateInfo> {
+
+		@Override
+		public ConfigTemplateInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+			ConfigTemplateInfo info = new ConfigTemplateInfo();
+            info.setTenant(rs.getString("tenant_id"));
+            info.setName(rs.getString("name"));
+            info.setDesc(rs.getString("t_desc"));
+            info.setType(rs.getString("type"));
+
+            try {
+                info.setContent(rs.getString("content"));
+            } catch (SQLException e) {
+                // ignore
+            }
+            try {
+                info.setMd5(rs.getString("md5"));
+            } catch (SQLException e) {
+                // ignore
+            }
+            try {
+                info.setId(rs.getLong("id"));
+            } catch (SQLException e) {
+                // ignore
+            }
+			return info;
+		}
+    	
+    }
+    
+    static final class ConfigTemplateAllInfoRowMapper implements RowMapper<ConfigTemplateAllInfo> {
+
+		@Override
+		public ConfigTemplateAllInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+			ConfigTemplateAllInfo info = new ConfigTemplateAllInfo();
+			info.setTenant(rs.getString("tenant_id"));
+            info.setName(rs.getString("name"));
+            info.setDesc(rs.getString("t_desc"));
+            info.setType(rs.getString("type"));
+
+            try {
+                info.setContent(rs.getString("content"));
+            } catch (SQLException e) {
+                // ignore
+            }
+            try {
+                info.setMd5(rs.getString("md5"));
+            } catch (SQLException e) {
+                // ignore
+            }
+            try {
+                info.setId(rs.getLong("id"));
+            } catch (SQLException e) {
+                // ignore
+            }
+			info.setCreateTime(rs.getTimestamp("gmt_create").getTime());
+            info.setModifyTime(rs.getTimestamp("gmt_modified").getTime());
+            info.setCreateUser(rs.getString("src_user"));
+			return info;
+		}
+    	
+    }
+    
+    static final class ConfigTemplateHistoryInfoRowMapper implements RowMapper<ConfigTemplateHistoryInfo> {
+
+		@Override
+		public ConfigTemplateHistoryInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+			ConfigTemplateHistoryInfo info = new ConfigTemplateHistoryInfo();
+			info.setTenant(rs.getString("tenant_id"));
+            info.setName(rs.getString("name"));
+            info.setDesc(rs.getString("t_desc"));
+            info.setType(rs.getString("type"));
+            info.settId(rs.getLong("t_id"));
+            info.setOpsType(rs.getString("ops_type"));
+
+            try {
+                info.setContent(rs.getString("content"));
+            } catch (SQLException e) {
+                // ignore
+            }
+            try {
+                info.setMd5(rs.getString("md5"));
+            } catch (SQLException e) {
+                // ignore
+            }
+            try {
+                info.setId(rs.getLong("id"));
+            } catch (SQLException e) {
+                // ignore
+            }
+			info.setCreateTime(rs.getTimestamp("gmt_create").getTime());
+            info.setCreateUser(rs.getString("src_user"));
+			return info;
+		}
+    	
+    }
+    
+    static final class ConfigTemplateRelationHistoryInfoRowMapper implements RowMapper<ConfigTemplateHistoryRelationInfo> {
+
+		@Override
+		public ConfigTemplateHistoryRelationInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+			ConfigTemplateHistoryRelationInfo info = new ConfigTemplateHistoryRelationInfo();
+
+			info.settId(rs.getLong("t_id"));
+            info.setcId(rs.getLong("cfg_id"));
+            info.setAppName(rs.getString("app_name"));
+            info.setDataId(rs.getString("data_id"));
+            info.setGroup(rs.getString("group_id"));
+            info.setTenant(rs.getString("tenant_id"));
+            info.setOpsType(rs.getString("ops_type"));
+            
+            try {
+                info.setId(rs.getLong("id"));
+            } catch (SQLException e) {
+                // ignore
+            }
+			info.setCreateTime(rs.getTimestamp("gmt_create").getTime());
+            info.setCreateUser(rs.getString("src_user"));
+			return info;
+		}
+    	
+    }
+    
+    static final class ConfigTemplateRelationInfoRowMapper implements RowMapper<ConfigTemplateRelationInfo> {
+
+		@Override
+		public ConfigTemplateRelationInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+			ConfigTemplateRelationInfo info = new ConfigTemplateRelationInfo();
+			
+            info.settId(rs.getLong("t_id"));
+            info.setcId(rs.getLong("cfg_id"));
+            info.setAppName(rs.getString("app_name"));
+            info.setDataId(rs.getString("data_id"));
+            info.setGroup(rs.getString("group_id"));
+            info.setTenant(rs.getString("tenant_id"));           
+            
+            try {
+                info.setId(rs.getLong("id"));
+            } catch (SQLException e) {
+                // ignore
+            }
+			info.setCreateTime(rs.getTimestamp("gmt_create").getTime());
+            info.setCreateUser(rs.getString("src_user"));
+			return info;
+		}
+    	
+    }
 
     public synchronized void reload() throws IOException {
         this.dataSourceService.reload();
@@ -491,6 +670,360 @@ public class PersistService {
 
     public String getCurrentDBUrl() {
         return this.dataSourceService.getCurrentDBUrl();
+    }
+    
+    //-------------------------config_template_info 表 insert update delete
+    
+    public boolean addConfigTemplateInfo(final String srcUser, final ConfigTemplateInfo configTemplateInfo, final Timestamp time) {
+    	return tjt.execute(new TransactionCallback<Boolean>() {
+
+			@Override
+			public Boolean doInTransaction(TransactionStatus status) {
+				try {
+					long tId = addConfigTemplateInfoAtomic(srcUser, configTemplateInfo, time);
+					insertConfigTemplateHistoryAtomic(tId, configTemplateInfo, srcUser, time, "I");
+				}catch(CannotGetJdbcConnectionException e) {
+					fatalLog.error("[db-error] " + e.toString(), e);
+                    throw e;
+				}
+				return Boolean.TRUE;
+			}
+    		
+    	});
+    }
+    
+    public boolean updateConfigTemplateInfo(final String srcUser, final ConfigTemplateInfo configTemplateInfo, final Timestamp time) {
+    	long tid = configTemplateInfo.getId();
+    	ConfigTemplateInfo curTemplateInfo = getConfigTemplateInfoById(tid);
+    	String curContent = curTemplateInfo.getContent();
+    	String lastContent = configTemplateInfo.getContent();
+    	List<Long> cfgIds = getAllConfigInfoIdsByTemplate(tid, configTemplateInfo.getTenant());
+    	List<ConfigInfo> cis = findConfigInfosByIds(StringUtils.join(cfgIds, ","));
+    	if(cis != null && cis.size() > 0) {
+    		for(ConfigInfo ci : cis) {
+    			String ct = ci.getContent();
+    			if(ct.contains(curContent)) {
+    				ct.replace(curContent, lastContent);
+    				ci.setContent(ct);
+    			}
+    		}
+    	}
+    	return tjt.execute(new TransactionCallback<Boolean>() {
+
+			@Override
+			public Boolean doInTransaction(TransactionStatus status) {
+				try {
+					updateConfigTemplateInfoAtomic(configTemplateInfo, srcUser, time);
+					insertConfigTemplateHistoryAtomic(tid, configTemplateInfo, srcUser, time, "U");
+					for(ConfigInfo configInfo : cis) {
+						updateConfigInfoWithoutAdvancedAtomic(configInfo, srcUser, time);
+						insertConfigHistoryAtomic(configInfo.getId(), configInfo, "0.0.0.0", srcUser, time, "U");
+						EventDispatcher.fireEvent(new ConfigDataChangeEvent(false, configInfo.getDataId(),
+	                            configInfo.getGroup(), configInfo.getTenant(), time.getTime()));
+					}
+				}catch(CannotGetJdbcConnectionException e) {
+					fatalLog.error("[db-error] " + e.toString(), e);
+                    throw e;
+				}
+				return Boolean.TRUE;
+			}
+    		
+    	});
+    }
+    
+    private void updateConfigTemplateInfoAtomic(final ConfigTemplateInfo configTemplateInfo, final String srcUser,
+            final Timestamp time) {
+		final String md5Tmp = MD5.getInstance().getMD5String(configTemplateInfo.getContent());
+		
+		try {
+			jt.update(
+			"UPDATE config_template_info SET content=?, md5 = ?, src_user=?, gmt_modified=?, t_desc=? WHERE id=?",
+			configTemplateInfo.getContent(), md5Tmp, srcUser, time, configTemplateInfo.getDesc(), configTemplateInfo.getId());
+		} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+	}
+    
+    public boolean deleteConfigTemplateInfo(final ConfigTemplateInfo configTemplateInfo, final String srcUser,
+            final Timestamp time) {
+    	return tjt.execute(new TransactionCallback<Boolean>() {
+
+			@Override
+			public Boolean doInTransaction(TransactionStatus status) {
+				try {
+					deleteConfigTemplateInfoAtomic(configTemplateInfo.getId());
+					insertConfigTemplateHistoryAtomic(configTemplateInfo.getId(), configTemplateInfo, srcUser, time, "D");
+				}catch(CannotGetJdbcConnectionException e) {
+					fatalLog.error("[db-error] " + e.toString(), e);
+                    throw e;
+				}
+				return Boolean.TRUE;
+			}
+    		
+    	});
+    }
+    
+    public boolean deleteRelatedAllConfigTemplateInfo(final ConfigTemplateInfo configTemplateInfo, final String srcUser,
+            final Timestamp time) {
+    	long tid = configTemplateInfo.getId();
+    	String lastContent = configTemplateInfo.getContent();
+    	List<Long> cfgIds = getAllConfigInfoIdsByTemplate(tid, configTemplateInfo.getTenant());
+    	List<ConfigInfo> cis = findConfigInfosByIds(StringUtils.join(cfgIds, ","));
+    	if(cis != null && cis.size() > 0) {
+    		for(ConfigInfo ci : cis) {
+    			String ct = ci.getContent();
+    			if(ct.contains(lastContent)) {
+    				ct.replace(lastContent, "");
+    				ci.setContent(ct);
+    			}
+    		}
+    	}
+    	return tjt.execute(new TransactionCallback<Boolean>() {
+
+			@Override
+			public Boolean doInTransaction(TransactionStatus status) {
+				try {
+					deleteConfigTemplateInfoAtomic(tid);
+					insertConfigTemplateHistoryAtomic(tid, configTemplateInfo, srcUser, time, "RD");
+					for(ConfigInfo configInfo : cis) {
+						updateConfigInfoWithoutAdvancedAtomic(configInfo, srcUser, time);
+						insertConfigHistoryAtomic(configInfo.getId(), configInfo, "0.0.0.0", srcUser, time, "U");
+						EventDispatcher.fireEvent(new ConfigDataChangeEvent(false, configInfo.getDataId(),
+	                            configInfo.getGroup(), configInfo.getTenant(), time.getTime()));
+					}
+				}catch(CannotGetJdbcConnectionException e) {
+					fatalLog.error("[db-error] " + e.toString(), e);
+                    throw e;
+				}
+				return Boolean.TRUE;
+			}
+    		
+    	});
+    }
+    
+    public void deleteConfigTemplateInfoAtomic(long id) {
+    	try {
+    		jt.update("DELETE from config_template_info where id=?", id);
+    	} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+    }
+    
+    public long addConfigTemplateRelationAtomic(final ConfigTemplateRelationInfo configTemplateRelationInfo, final String srcUser,
+            final Timestamp time) {
+    	try {
+    		KeyHolder keyHolder = new GeneratedKeyHolder();
+    		
+    		final String sql = "INSERT INTO config_template_relation(cfg_id,t_id,data_id,group_id,tanant_id,gmt_create,src_user,app_name) VALUES(?,?,?,?,?,?,?,?)";
+    		
+    		try {
+    		jt.update(new PreparedStatementCreator() {
+    		@Override
+    		public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+    				PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+    				ps.setLong(1, configTemplateRelationInfo.getcId());
+    				ps.setLong(2, configTemplateRelationInfo.gettId());
+    				ps.setString(3, configTemplateRelationInfo.getDataId());
+    				ps.setString(4, configTemplateRelationInfo.getGroup());
+    				ps.setString(5, configTemplateRelationInfo.getTenant());
+    				ps.setTimestamp(6, time);
+    				ps.setString(7, srcUser);
+    				ps.setString(8, configTemplateRelationInfo.getAppName());
+    				return ps;
+    			}
+    		}, keyHolder);
+    		Number nu = keyHolder.getKey();
+    		if (nu == null) {
+    			throw new IllegalArgumentException("insert config_template_relation fail");
+    		}
+    			return nu.longValue();
+    		} catch (CannotGetJdbcConnectionException e) {
+    			fatalLog.error("[db-error] " + e.toString(), e);
+    			throw e;
+    		}
+    	} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+    }
+    
+    public void deleteConfigTemplateRelationAtomic(final ConfigTemplateRelationInfo configTemplateRelationInfo, final String srcUser,
+            final Timestamp time) {
+    	try {
+    		jt.update("DELETE from config_template_relation where cfg_id=? and t_id=? and data_id=? and group_id=? and tanant_id=?", 
+    				configTemplateRelationInfo.getcId(), configTemplateRelationInfo.gettId(), configTemplateRelationInfo.getDataId(),
+    				configTemplateRelationInfo.getGroup(), configTemplateRelationInfo.getTenant());
+    	} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+    }
+    
+    public List<Long> getAllConfigInfoIdsByTemplate(long tid, String tenant) {
+    	try {
+    		StringBuilder sql = new StringBuilder();
+    		sql.append("SELECT cfg_id FROM config_template_relation WHERE t_id=? and tanant_id=?");
+            return this.jt.query(sql.toString(), new Object[] {tid, tenant}, new RowMapper<Long>() {
+
+				@Override
+				public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
+					return rs.getLong("cfg_id");
+				}
+            	
+            });
+        } catch (EmptyResultDataAccessException e) { // 表明数据不存在, 返回null
+            return new ArrayList<Long>();
+        } catch (CannotGetJdbcConnectionException e) {
+            fatalLog.error("[db-error] " + e.toString(), e);
+            throw e;
+        }
+    }
+    
+    public ConfigTemplateInfo getConfigTemplateInfoById(long id) {
+    	try {
+    		StringBuilder sql = new StringBuilder();
+    		sql.append("SELECT id,name,content,type,src_user,gmt_create,gmt_modified,t_desc,tenant_id,md5 FROM config_template_info WHERE id=?");
+    		return this.jt.queryForObject(sql.toString(), new Object[] {id}, CONFIG_TEMPLATE_INFO_ROW_MAPPER);
+	    } catch (EmptyResultDataAccessException e) { // 表明数据不存在, 返回null
+	        return null;
+	    } catch (CannotGetJdbcConnectionException e) {
+	        fatalLog.error("[db-error] " + e.toString(), e);
+	        throw e;
+	    }   	
+    }
+    
+    public ConfigTemplateInfo getConfigTemplateInfoByNameAndTenant(String name, String tenant) {
+    	try {
+    		StringBuilder sql = new StringBuilder();
+    		sql.append("SELECT id,name,content,type,src_user,gmt_create,gmt_modified,t_desc,tenant_id,md5 FROM config_template_info WHERE name=? and tenant_id=?");
+    		return this.jt.queryForObject(sql.toString(), new Object[] {name, tenant}, CONFIG_TEMPLATE_INFO_ROW_MAPPER);
+	    } catch (EmptyResultDataAccessException e) {
+	        return null;
+	    } catch (CannotGetJdbcConnectionException e) {
+	        fatalLog.error("[db-error] " + e.toString(), e);
+	        throw e;
+	    }   	
+    }
+    
+    private long addConfigTemplateInfoAtomic(final String srcUser, final ConfigTemplateInfo configTemplateInfo,
+            final Timestamp time) {
+		
+		final String md5Tmp = MD5.getInstance().getMD5String(configTemplateInfo.getContent());
+		
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+		
+		final String sql = "INSERT INTO config_template_info(tenant_id,name,content,md5,src_user,gmt_create,gmt_modified,t_desc,type) VALUES(?,?,?,?,?,?,?,?,?)";
+		
+		try {
+		jt.update(new PreparedStatementCreator() {
+		@Override
+		public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+				PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+				ps.setString(1, configTemplateInfo.getTenant());
+				ps.setString(2, configTemplateInfo.getName());
+				ps.setString(3, configTemplateInfo.getContent());
+				ps.setString(4, md5Tmp);
+				ps.setString(5, srcUser);
+				ps.setTimestamp(6, time);
+				ps.setTimestamp(7, time);
+				ps.setString(8, configTemplateInfo.getDesc());
+				ps.setString(9, configTemplateInfo.getType());
+				return ps;
+			}
+		}, keyHolder);
+		Number nu = keyHolder.getKey();
+		if (nu == null) {
+			throw new IllegalArgumentException("insert config_template_info fail");
+		}
+			return nu.longValue();
+		} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+	}
+    
+    private void insertConfigTemplateHistoryAtomic(long tid, ConfigTemplateInfo configTemplateInfo, String srcUser,
+            final Timestamp time, String ops) {
+		final String md5Tmp = MD5.getInstance().getMD5String(configTemplateInfo.getContent());
+		try {
+			jt.update(
+			"INSERT INTO his_config_template_info (t_id,tenant_id,name,content,md5,type,src_user,t_desc,gmt_create,op_type) VALUES(?,?,?,?,?,?,?,?,?,?)",
+			tid, configTemplateInfo.getTenant(), configTemplateInfo.getName(), configTemplateInfo.getContent(), md5Tmp, configTemplateInfo.getType(),
+			srcUser, configTemplateInfo.getDesc(), time, ops);
+		} catch (DataAccessException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+	}
+    
+    public Page<ConfigTemplateAllInfo> findConfigTemplateInfoByTenant(final int pageNo, final int pageSize, final String tenant) {
+    	PaginationHelper<ConfigTemplateAllInfo> helper = new PaginationHelper<ConfigTemplateAllInfo>();
+		try {
+			return helper.fetchPage(this.jt, "select count(*) from his_config_template_info where tenant_id=?",
+			"select id,t_id,tenant_id,name,content,md5,type,src_user,t_desc,gmt_create,op_type from his_config_template_info where "
+			+ "tenant_id=?",
+			new Object[]{tenant}, pageNo, pageSize, CONFIG_TEMPLATE_ALL_INFO_ROW_MAPPER);
+		} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+	}
+    
+    public Page<ConfigTemplateAllInfo> findConfigTemplateInfoByTenantAndName(final int pageNo, final int pageSize, final String name,
+            final String tenant) {
+    	PaginationHelper<ConfigTemplateAllInfo> helper = new PaginationHelper<ConfigTemplateAllInfo>();
+		try {
+			return helper.fetchPage(this.jt, "select count(*) from his_config_template_info where name=? and tenant_id=?",
+			"select id,t_id,tenant_id,name,content,md5,type,src_user,t_desc,gmt_create,op_type from his_config_template_info where name=? and "
+			+ "tenant_id=?",
+			new Object[]{name, tenant}, pageNo, pageSize, CONFIG_TEMPLATE_ALL_INFO_ROW_MAPPER);
+		} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+	}
+    
+    public void insertConfigInfoTypeAtomic(final ConfigInfoType infoType) {
+    	try {
+			jt.update(
+			"INSERT INTO config_show_type_info (data_id,group_id,tenant_id,type) VALUES(?,?,?,?)",
+			infoType.getDataId(), infoType.getGroup(), infoType.getTenant(), infoType.getType());
+		} catch (DataAccessException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+    }
+    
+    public void deleteConfigInfoTypeAtomic(final ConfigInfoType infoType) {
+    	try {
+    		jt.update("DELETE from config_show_type_info where data_id=? and group_id=? and tenant_id=? and type=?", 
+    				infoType.getDataId(), infoType.getGroup(), infoType.getTenant(),infoType.getType());
+    	} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+    }
+    
+    public List<String> fuzzySearchNameWithCondition(final String key, final String tenant) {
+    	try {
+    		StringBuilder sql = new StringBuilder();
+    		sql.append("SELECT name FROM config_template_info WHERE name like %?% and tenant_id=?");
+    		return this.jt.query(sql.toString(), new Object[] {key, tenant}, new RowMapper<String>() {
+
+				@Override
+				public String mapRow(ResultSet rs, int rowNum) throws SQLException {					
+					return rs.getString("name");
+				}
+    			
+    		});
+	    } catch (EmptyResultDataAccessException e) {
+	        return null;
+	    } catch (CannotGetJdbcConnectionException e) {
+	        fatalLog.error("[db-error] " + e.toString(), e);
+	        throw e;
+	    }  
     }
 
     // ----------------------- config_info 表 insert update delete
@@ -2914,6 +3447,20 @@ public class PersistService {
             throw e;
         }
     }
+    
+    private void updateConfigInfoWithoutAdvancedAtomic(final ConfigInfo configInfo, final String srcUser,
+            final Timestamp time) {
+		final String md5Tmp = MD5.getInstance().getMD5String(configInfo.getContent());
+		
+		try {
+			jt.update(
+			"UPDATE config_info SET content=?, md5 = ?, src_user=?, gmt_modified=? WHERE id=?",
+			configInfo.getContent(), md5Tmp, srcUser, time, configInfo.getId());
+		} catch (CannotGetJdbcConnectionException e) {
+			fatalLog.error("[db-error] " + e.toString(), e);
+			throw e;
+		}
+	}
 
     /**
      * 查询配置信息；数据库原子操作，最小sql动作，无业务封装
@@ -3598,6 +4145,16 @@ public class PersistService {
     static final ConfigHistoryRowMapper HISTORY_LIST_ROW_MAPPER = new ConfigHistoryRowMapper();
 
     static final ConfigHistoryDetailRowMapper HISTORY_DETAIL_ROW_MAPPER = new ConfigHistoryDetailRowMapper();
+    
+    static final ConfigTemplateInfoRowMapper CONFIG_TEMPLATE_INFO_ROW_MAPPER = new ConfigTemplateInfoRowMapper();
+    
+    static final ConfigTemplateAllInfoRowMapper CONFIG_TEMPLATE_ALL_INFO_ROW_MAPPER = new ConfigTemplateAllInfoRowMapper();
+    
+    static final ConfigTemplateHistoryInfoRowMapper CONFIG_TEMPLATE_HISTORY_ROW_MAPPER = new ConfigTemplateHistoryInfoRowMapper();
+    
+    static final ConfigTemplateRelationInfoRowMapper CONFIG_TEMPLATE_RELATION_ROW_MAPPER = new ConfigTemplateRelationInfoRowMapper();
+    
+    static final ConfigTemplateRelationHistoryInfoRowMapper CONFIG_TEMPLATE_RELATION_HISTORY_ROW_MAPPER = new ConfigTemplateRelationHistoryInfoRowMapper();
 
     private static String PATTERN_STR = "*";
     private final static int QUERY_LIMIT_SIZE = 50;
