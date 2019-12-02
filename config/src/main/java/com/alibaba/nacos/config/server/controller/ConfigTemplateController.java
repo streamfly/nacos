@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -152,13 +153,33 @@ public class ConfigTemplateController {
 		return null;
 	}
 	
-	@PostMapping
-	public Boolean copyConfigTemplateFromOtherNamespace(@RequestParam(value = "src") String srcEnv,
-			@RequestParam(value = "dst") String dstEnv,
-			@RequestParam(value = "name", required = false) String name,
-			@RequestParam(value = "withContent") Boolean withContent) {
+	@PostMapping(params = "export=true")
+    public RestResult<Map<String, Object>> exportConfigTemplate(HttpServletRequest request,
+                                                                  @RequestParam(value = "src_user", required = false) String srcUser,
+                                                                  @RequestParam(value = "namespace") String namespace,
+                                                                  @RequestParam(value = "type") String type,
+                                                                  MultipartFile file) throws NacosException {
 		
-		return false;
+		return null;
+	}
+	
+	@PostMapping
+	public Boolean copyConfigTemplateFromOtherNamespace(
+			@RequestParam(value = "src_user", required = false) String srcUser,
+			@RequestParam(value = "src") String srcEnv,
+			@RequestParam(value = "dst") String dstEnv,
+			@RequestParam(value = "name", required = false) String name) {
+		return persistService.copyConfigTemplateFromOtherNamespace(srcUser, srcEnv, dstEnv, name, false);
+	}
+	
+	@PostMapping
+	public Boolean createConfigWithTemplate(@RequestParam(value = "tenant") String tenant,
+			@RequestParam("dataId") String dataId, @RequestParam("group") String group,
+			@RequestParam(value = "appName", required = false) String appName,
+			@RequestParam(value = "src_user", required = false) String srcUser,
+			@RequestParam(value = "templates") String templates) {
+		String[] temps = StringUtils.split(templates, ",");
+		return persistService.createConfigWithTemplates(tenant, group, dataId, appName, srcUser, temps);
 	}
 	
 }
