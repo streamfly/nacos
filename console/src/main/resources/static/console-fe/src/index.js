@@ -46,6 +46,11 @@ import SubscriberList from './pages/ServiceManagement/SubscriberList';
 import ClusterNodeList from './pages/ClusterManagement/ClusterNodeList';
 import Welcome from './pages/Welcome/Welcome';
 
+import NewconfigTpt from './pages/ConfigurationManagement/NewConfigTpt';
+import ConfigTptdetail from './pages/ConfigurationManagement/ConfigTptDetail';
+import ConfigTpteditor from './pages/ConfigurationManagement/ConfigTptEditor';
+import ConfigurationTptManagement from './pages/ConfigurationManagement/ConfigurationTptManagement';
+
 import reducers from './reducers';
 import { changeLanguage } from './reducers/locale';
 
@@ -80,6 +85,10 @@ const MENU = [
   { path: '/configsync', component: Configsync },
   { path: '/configdetail', component: Configdetail },
   { path: '/configeditor', component: Configeditor },
+  { path: '/newconfigTpt', component: NewconfigTpt },
+  { path: '/configtptdetail', component: ConfigTptdetail },
+  { path: '/configetpteditor', component: ConfigTpteditor },
+  { path: '/configurationTptManagement', component: ConfigurationTptManagement },
   { path: '/historyDetail', component: HistoryDetail },
   { path: '/configRollback', component: ConfigRollback },
   { path: '/historyRollback', component: HistoryRollback },

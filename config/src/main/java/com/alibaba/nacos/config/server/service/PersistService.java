@@ -1052,7 +1052,7 @@ public class PersistService {
     public Boolean createConfigWithTemplates(String tenant, String group, String dataId, String appName, String srcUser, String...templateIds) {
     	try {
     		if(templateIds != null && templateIds.length > 0) {
-        		Map<Long, ConfigTemplateInfo> cts = new HashMap<Long, ConfigTemplateInfo>();
+        		Map<Long, ConfigTemplateInfo> cts = new HashMap<Long, ConfigTemplateInfo>(8);
         		StringBuilder sb = new StringBuilder();
         		for(String id : templateIds) {
         			Long tid = Long.parseLong(id);

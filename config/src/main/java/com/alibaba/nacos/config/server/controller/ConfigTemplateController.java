@@ -47,7 +47,7 @@ public class ConfigTemplateController {
         this.persistService = persistService;
     }
 	
-	@PostMapping
+	@PostMapping("/new")
     public Boolean createConfigTemplate(HttpServletRequest request, HttpServletResponse response,
     							 @RequestParam("name") String name,
                                  @RequestParam(value = "tenant") String tenant,
@@ -68,7 +68,7 @@ public class ConfigTemplateController {
 		return persistService.addConfigTemplateInfo(srcUser, configTemplateInfo, time);
 	}
 	
-	@PostMapping
+	@PostMapping("/update")
 	public Boolean updateConfigTemplate(HttpServletRequest request, HttpServletResponse response,
 			 @RequestParam("name") String name,
              @RequestParam(value = "tenant") String tenant,
@@ -90,7 +90,7 @@ public class ConfigTemplateController {
 		return persistService.updateConfigTemplateInfo(srcUser, configTemplateInfo, time);
 	}
 	
-	@PostMapping
+	@PostMapping("/delete")
 	public Boolean deleteConfigTemplate(HttpServletRequest request, HttpServletResponse response,
 			 @RequestParam("name") String name,
              @RequestParam(value = "tenant") String tenant,
@@ -106,7 +106,7 @@ public class ConfigTemplateController {
 		return persistService.deleteConfigTemplateInfo(configTemplateInfo, srcUser, time);
 	}
 	
-	@PostMapping
+	@PostMapping("/deleteall")
 	public Boolean deleteAllConfigTemplate(HttpServletRequest request, HttpServletResponse response,
 			 @RequestParam("name") String name,
              @RequestParam(value = "tenant") String tenant,
@@ -136,7 +136,7 @@ public class ConfigTemplateController {
 		return persistService.fuzzySearchNameWithCondition(key, tenant);
 	}
 	
-	@GetMapping
+	@GetMapping("/info")
 	public ConfigTemplateInfo getConfigTemplateInfo(@RequestParam(value = "name") String name,
     		@RequestParam(value = "tenant") String tenant)
 		 throws NacosException {		
@@ -163,7 +163,7 @@ public class ConfigTemplateController {
 		return null;
 	}
 	
-	@PostMapping
+	@PostMapping("/copybynamespace")
 	public Boolean copyConfigTemplateFromOtherNamespace(
 			@RequestParam(value = "src_user", required = false) String srcUser,
 			@RequestParam(value = "src") String srcEnv,
@@ -172,7 +172,7 @@ public class ConfigTemplateController {
 		return persistService.copyConfigTemplateFromOtherNamespace(srcUser, srcEnv, dstEnv, name, false);
 	}
 	
-	@PostMapping
+	@PostMapping("/newconfigwithtemplate")
 	public Boolean createConfigWithTemplate(@RequestParam(value = "tenant") String tenant,
 			@RequestParam("dataId") String dataId, @RequestParam("group") String group,
 			@RequestParam(value = "appName", required = false) String appName,
