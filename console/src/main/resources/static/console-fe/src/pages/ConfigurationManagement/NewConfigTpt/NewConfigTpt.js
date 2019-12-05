@@ -39,7 +39,7 @@ const { Group: RadioGroup } = Radio;
 const { AutoComplete: Combobox } = Select;
 
 @ConfigProvider.config
-class NewConfig extends React.Component {
+class NewConfigTpt extends React.Component {
   static displayName = 'NewConfig';
 
   static propTypes = {
@@ -586,4 +586,4 @@ class NewConfig extends React.Component {
   }
 }
 
-export default NewConfig;
+export default NewConfigTpt;

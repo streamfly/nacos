@@ -22,7 +22,7 @@ const TabPane = Tab.Item;
 const FormItem = Form.Item;
 
 @ConfigProvider.config
-class ConfigDetail extends React.Component {
+class ConfigTptDetail extends React.Component {
   static displayName = 'ConfigDetail';
 
   static propTypes = {
@@ -246,4 +246,4 @@ class ConfigDetail extends React.Component {
   }
 }
 
-export default ConfigDetail;
+export default ConfigTptDetail;

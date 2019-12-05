@@ -11,6 +11,6 @@
  * limitations under the License.
  */
 
-import ConfigDetailTpt from './ConfigDetailTpt';
+import ConfigTptDetail from './ConfigTptDetail';
 
-export default ConfigDetailTpt;
+export default ConfigTptDetail;

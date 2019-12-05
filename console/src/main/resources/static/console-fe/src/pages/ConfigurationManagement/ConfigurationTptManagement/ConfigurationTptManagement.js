@@ -48,7 +48,7 @@ const { Row, Col } = Grid;
 const configsTableSelected = new Map();
 
 @ConfigProvider.config
-class ConfigurationManagement extends React.Component {
+class ConfigurationTptManagement extends React.Component {
   static displayName = 'ConfigurationManagement';
 
   static propTypes = {
@@ -1360,4 +1360,4 @@ class ConfigurationManagement extends React.Component {
   }
 }
 
-export default ConfigurationManagement;
+export default ConfigurationTptManagement;

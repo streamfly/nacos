@@ -53,7 +53,7 @@ const LANGUAGE_LIST = [
 const TAB_LIST = ['production', 'beta'];
 
 @ConfigProvider.config
-class ConfigEditor extends React.Component {
+class ConfigTptEditor extends React.Component {
   static displayName = 'ConfigEditor';
 
   static propTypes = {
@@ -595,4 +595,4 @@ class ConfigEditor extends React.Component {
   }
 }
 
-export default ConfigEditor;
+export default ConfigTptEditor;

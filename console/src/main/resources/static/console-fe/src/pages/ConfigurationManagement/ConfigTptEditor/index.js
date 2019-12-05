@@ -11,6 +11,6 @@
  * limitations under the License.
  */
 
-import ConfigTptEditor from './NewConfigEditorTpt';
+import ConfigTptEditor from './NewConfigTptEditor';
 
 export default ConfigTptEditor;
