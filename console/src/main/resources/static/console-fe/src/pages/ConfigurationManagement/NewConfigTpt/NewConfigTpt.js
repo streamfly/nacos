@@ -40,7 +40,7 @@ const { AutoComplete: Combobox } = Select;
 
 @ConfigProvider.config
 class NewConfigTpt extends React.Component {
-  static displayName = 'NewConfig';
+  static displayName = 'NewConfigTpt';
 
   static propTypes = {
     locale: PropTypes.object,

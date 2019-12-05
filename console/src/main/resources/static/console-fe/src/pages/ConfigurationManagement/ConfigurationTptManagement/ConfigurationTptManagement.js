@@ -49,7 +49,7 @@ const configsTableSelected = new Map();
 
 @ConfigProvider.config
 class ConfigurationTptManagement extends React.Component {
-  static displayName = 'ConfigurationManagement';
+  static displayName = 'ConfigurationTptManagement';
 
   static propTypes = {
     locale: PropTypes.object,

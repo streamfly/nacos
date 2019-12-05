@@ -54,7 +54,7 @@ const TAB_LIST = ['production', 'beta'];
 
 @ConfigProvider.config
 class ConfigTptEditor extends React.Component {
-  static displayName = 'ConfigEditor';
+  static displayName = 'ConfigTptEditor';
 
   static propTypes = {
     locale: PropTypes.object,

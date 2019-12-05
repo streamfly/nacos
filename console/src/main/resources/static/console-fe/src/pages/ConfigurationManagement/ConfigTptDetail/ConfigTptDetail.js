@@ -23,7 +23,7 @@ const FormItem = Form.Item;
 
 @ConfigProvider.config
 class ConfigTptDetail extends React.Component {
-  static displayName = 'ConfigDetail';
+  static displayName = 'ConfigTptDetail';
 
   static propTypes = {
     locale: PropTypes.object,
